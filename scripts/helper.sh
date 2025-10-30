@@ -18,7 +18,7 @@ ensure_run_script_exists() {
     fi
     
     # Ensure scripts are executable
-    chmod +x "$HOME/common.sh" "$HOME/run.sh"
+    chmod +x "$HOME/common.sh" "$HOME/run.sh" 2>/dev/null || true
 }
 
 # Parse port configuration
@@ -75,7 +75,7 @@ parse_ports() {
 
 # Execute PRoot environment
 exec_proot() {
-    echo "Initializing PRoot environment..."
+    echo "Initializing X-Host VPS PRoot environment..."
     
     # Ensure home directory exists and has proper permissions
     mkdir -p "${HOME}"
@@ -96,6 +96,5 @@ exec_proot() {
 }
 
 # Main execution
-echo "=== X-Host VPS Starting ==="
 ensure_run_script_exists
 exec_proot
