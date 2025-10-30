@@ -12,11 +12,6 @@ DISTRO_MAP_URL="https://distromap.istan.to"
 # Add to PATH
 export PATH="$PATH:~/.local/usr/bin"
 
-# Create necessary directories
-mkdir -p "$ROOTFS_DIR" /tmp/sbin
-chmod 755 "$ROOTFS_DIR" /tmp/sbin
-
-# ... باقي المحتوى الأصلي يبقى كما هو مع إضافة set -e في البداية
 # Define all available distributions
 # Format: "number:display_name:distro_id:flag:post_config:custom_handler"
 distributions="
