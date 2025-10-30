@@ -1,4 +1,4 @@
-herename: X-Host VPS Docker Image CI
+name: X-Host VPS Docker Image CI
 
 on:
   push:
