@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 
 # Source common functions and variables
 . /common.sh
@@ -31,7 +32,8 @@ fi
 
 # Check if the autorun script exists
 if [ ! -e "/autorun.sh" ]; then
-    touch /autorun.sh
+    echo "# X-Host VPS Autorun Script" > /autorun.sh
+    echo "# Add your custom startup commands here" >> /autorun.sh
     chmod +x /autorun.sh
 fi
 
@@ -145,7 +147,7 @@ install_ssh() {
     arch=$(detect_architecture)
     
     # URL to download the SSH binary
-    url="https://github.com/Tarboobot2888/x/releases/latest/download/ssh-$arch"
+    url="https://github.com/ysdragon/ssh/releases/latest/download/ssh-$arch"
     
     # Download the SSH binary
     wget -q -O /usr/local/bin/ssh "$url" || {
@@ -337,7 +339,9 @@ print_instructions
 printf "${GREEN}root@${HOSTNAME}${NC}:${RED}$(get_formatted_dir)${NC}#\n"
 
 # Execute autorun.sh
-sh "/autorun.sh"
+if [ -f "/autorun.sh" ]; then
+    sh "/autorun.sh"
+fi
 
 # Main command loop
 while true; do
