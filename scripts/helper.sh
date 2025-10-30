@@ -1,24 +1,28 @@
 #!/bin/sh
-set -e
+
+# X-Host VPS Helper Script
+# Downloaded from: https://github.com/Tarboobot2888/x
 
 ensure_run_script_exists() {
     # Create home directory if it doesn't exist
     mkdir -p "$HOME"
     
-    # Check if common.sh exists in the container, if not copy it again
+    # Check if common.sh exists in the container, if not download it
     if [ ! -f "$HOME/common.sh" ]; then
-        cp /common.sh "$HOME/common.sh"
+        echo "📥 Downloading common.sh from GitHub..."
+        curl -s -L "https://raw.githubusercontent.com/Tarboobot2888/x/main/scripts/common.sh" -o "$HOME/common.sh"
         chmod +x "$HOME/common.sh"
     fi
     
-    # Check if run.sh exists in the container, if not copy it again
+    # Check if run.sh exists in the container, if not download it
     if [ ! -f "$HOME/run.sh" ]; then
-        cp /run.sh "$HOME/run.sh"
+        echo "📥 Downloading run.sh from GitHub..."
+        curl -s -L "https://raw.githubusercontent.com/Tarboobot2888/x/main/scripts/run.sh" -o "$HOME/run.sh"
         chmod +x "$HOME/run.sh"
     fi
     
     # Ensure scripts are executable
-    chmod +x "$HOME/common.sh" "$HOME/run.sh" 2>/dev/null || true
+    chmod +x "$HOME/common.sh" "$HOME/run.sh" 2>/dev/null
 }
 
 # Parse port configuration
@@ -75,7 +79,7 @@ parse_ports() {
 
 # Execute PRoot environment
 exec_proot() {
-    echo "Initializing X-Host VPS PRoot environment..."
+    echo "🚀 Initializing X-Host VPS Environment..."
     
     # Ensure home directory exists and has proper permissions
     mkdir -p "${HOME}"
@@ -83,7 +87,7 @@ exec_proot() {
     
     port_args=$(parse_ports)
     
-    echo "Starting PRoot with ports: $port_args"
+    echo "🔧 Starting PRoot with ports: $port_args"
     
     exec /usr/local/bin/proot \
     --rootfs="${HOME}" \
@@ -96,5 +100,11 @@ exec_proot() {
 }
 
 # Main execution
+echo "========================================="
+echo "🎉 X-Host VPS Starting..."
+echo "📍 Scripts Source: GitHub/Tarboobot2888/x"
+echo "🚀 Environment: PRoot + Docker"
+echo "========================================="
+
 ensure_run_script_exists
 exec_proot
