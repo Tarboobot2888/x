@@ -16,7 +16,9 @@ RUN apk update && \
         ca-certificates \
         iproute2 \
         xz \
-        shadow
+        shadow \
+        sudo \
+        coreutils
 
 # Install PRoot
 RUN ARCH=$(uname -m) && \
@@ -25,8 +27,10 @@ RUN ARCH=$(uname -m) && \
     curl -Ls "$proot_url" -o /usr/local/bin/proot && \
     chmod 755 /usr/local/bin/proot
 
-# Create a non-root user
-RUN adduser -D -h /home/container -s /bin/sh container
+# Create a non-root user and set proper permissions
+RUN adduser -D -h /home/container -s /bin/sh container && \
+    mkdir -p /home/container && \
+    chown -R container:container /home/container
 
 # Switch to the new user
 USER container
@@ -35,6 +39,10 @@ ENV HOME=/home/container
 
 # Set the working directory
 WORKDIR /home/container
+
+# Create necessary directories
+RUN mkdir -p /home/container/{.cache,.config,.local} && \
+    chmod 755 /home/container /home/container/{.cache,.config,.local}
 
 # Copy scripts into the container
 COPY --chown=container:container ./scripts/entrypoint.sh /entrypoint.sh
@@ -45,6 +53,14 @@ COPY --chown=container:container ./scripts/common.sh /common.sh
 
 # Make the copied scripts executable
 RUN chmod +x /entrypoint.sh /install.sh /helper.sh /run.sh /common.sh
+
+# Create necessary directories and set permissions
+USER root
+RUN mkdir -p /mnt /tmp /var/tmp && \
+    chmod 1777 /tmp /var/tmp && \
+    chown container:container /mnt
+
+USER container
 
 # Set the default command
 CMD ["/bin/sh", "/entrypoint.sh"]
