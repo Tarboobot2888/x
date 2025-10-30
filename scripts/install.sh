@@ -4,15 +4,6 @@ set -e
 # X-Host VPS Installation Script
 # Downloaded from: https://github.com/Tarboobot2888/x
 
-# Source common functions and variables
-if [ -f "common.sh" ]; then
-    . common.sh
-else
-    # Download common.sh if not available
-    curl -s -L "https://raw.githubusercontent.com/Tarboobot2888/x/main/scripts/common.sh" -o common.sh
-    . common.sh
-fi
-
 # Configuration variables
 ROOTFS_DIR="/home/container"
 BASE_URL="https://images.linuxcontainers.org/images"
@@ -24,6 +15,50 @@ export PATH="$PATH:~/.local/usr/bin"
 # Create necessary directories
 mkdir -p "$ROOTFS_DIR" /tmp/sbin
 chmod 755 "$ROOTFS_DIR" /tmp/sbin
+
+# Common color definitions (fallback if common.sh fails)
+PURPLE='\033[0;35m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+log() {
+    level=$1
+    message=$2
+    color=$3
+    
+    if [ -z "$color" ]; then
+        color="$NC"
+    fi
+    
+    printf "${color}[$level]${NC} $message\n"
+}
+
+# Function to detect architecture
+detect_architecture() {
+    ARCH=$(uname -m)
+    case "$ARCH" in
+        x86_64)
+            echo "amd64"
+        ;;
+        aarch64)
+            echo "arm64"
+        ;;
+        riscv64)
+            echo "riscv64"
+        ;;
+        *)
+            log "ERROR" "Unsupported CPU architecture: $ARCH" "$RED" >&2
+            return 1
+        ;;
+    esac
+}
+
+# Detect architecture early
+ARCH_ALT=$(detect_architecture)
 
 # Define all available distributions
 distributions="

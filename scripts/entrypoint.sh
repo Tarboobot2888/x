@@ -63,28 +63,37 @@ if [ "${AUTO_UPDATE_SCRIPTS:-true}" = "true" ]; then
     done
 fi
 
-# Check if installation is needed
-if [ ! -e "/home/container/.installed" ]; then
-    echo "📦 Starting installation process..."
-    if [ -f "/home/container/scripts/install.sh" ] && [ -x "/home/container/scripts/install.sh" ]; then
-        if /bin/sh "/home/container/scripts/install.sh"; then
-            touch /home/container/.installed
-            echo "✅ Installation completed successfully"
+# Check if we should auto-update scripts
+if [ "${AUTO_UPDATE_SCRIPTS:-true}" = "true" ]; then
+    echo "🔄 Auto-updating scripts from GitHub..."
+    
+    SCRIPTS_URL="https://raw.githubusercontent.com/Tarboobot2888/x/main/scripts"
+    mkdir -p /home/container/scripts
+    
+    for script in common.sh run.sh helper.sh; do
+        echo "Updating $script..."
+        if curl -s -L --connect-timeout 10 "$SCRIPTS_URL/$script" -o "/home/container/scripts/$script"; then
+            chmod +x "/home/container/scripts/$script"
+            echo "✅ $script updated"
         else
-            echo "❌ Installation failed, continuing with basic setup..."
+            echo "❌ Failed to update $script, using local version if available"
         fi
-    else
-        echo "⚠️ install.sh not found or not executable, skipping installation"
-    fi
+    done
 fi
 
-# Run the startup helper script
+# Fix permissions
+chown -R 1000:1000 /home/container 2>/dev/null || true
+chmod 755 /home/container
+
+# Run the main script
 echo "🎯 Starting X-Host VPS Environment..."
-if [ -f "/home/container/scripts/helper.sh" ] && [ -x "/home/container/scripts/helper.sh" ]; then
-    exec /bin/sh /home/container/scripts/helper.sh
+cd /home/container
+
+if [ -f "scripts/run.sh" ] && [ -x "scripts/run.sh" ]; then
+    exec ./scripts/run.sh
+elif [ -f "run.sh" ] && [ -x "run.sh" ]; then
+    exec ./run.sh
 else
-    echo "❌ helper.sh not found or not executable"
-    echo "🔧 Starting fallback shell environment..."
-    cd /home/container
+    echo "❌ No run script found, starting basic shell..."
     exec /bin/sh
 fi

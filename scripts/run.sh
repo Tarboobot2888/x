@@ -187,14 +187,49 @@ execute_command() {
     
     # Handle special commands
     case "$cmd" in
+        "update")
+            log "INFO" "Updating X-Host VPS scripts..." "$YELLOW"
+            if curl -s -L "https://raw.githubusercontent.com/Tarboobot2888/x/main/scripts/update_scripts.sh" -o /tmp/update.sh; then
+                chmod +x /tmp/update.sh
+                /tmp/update.sh
+            else
+                log "ERROR" "Failed to download update script" "$RED"
+            fi
+            print_prompt "$user"
+            return 0
+            ;;
+        "disk")
+            log "INFO" "Disk usage information:" "$GREEN"
+            df -h
+            print_prompt "$user"
+            return 0
+            ;;
+        "memory")
+            log "INFO" "Memory usage information:" "$GREEN"
+            free -h
+            print_prompt "$user"
+            return 0
+            ;;
+        "network")
+            log "INFO" "Network information:" "$GREEN"
+            ip addr show 2>/dev/null || ifconfig 2>/dev/null || echo "Network tools not available"
+            print_prompt "$user"
+            return 0
+            ;;
+        "ports")
+            log "INFO" "Active ports:" "$GREEN"
+            netstat -tuln 2>/dev/null || ss -tuln 2>/dev/null || echo "Port tools not available"
+            print_prompt "$user"
+            return 0
+            ;;
         "clear"|"cls")
             printf "\033c"
             print_prompt "$user"
             return 0
-        ;;
+            ;;
         "exit")
             cleanup
-        ;;
+            ;;
         "history")
             if [ -f "$HISTORY_FILE" ]; then
                 cat "$HISTORY_FILE" | tail -20
@@ -203,53 +238,53 @@ execute_command() {
             fi
             print_prompt "$user"
             return 0
-        ;;
+            ;;
         "reinstall")
             reinstall
             print_prompt "$user"
             return 0
-        ;;
+            ;;
         "sudo"*|"su"*)
             log "ERROR" "You are already running as root." "$RED"
             print_prompt "$user"
             return 0
-        ;;
+            ;;
         "install-ssh")
             log "INFO" "SSH installation would be available in full installation" "$YELLOW"
             print_prompt "$user"
             return 0
-        ;;
+            ;;
         "status")
             show_system_status
             print_prompt "$user"
             return 0
-        ;;
+            ;;
         "backup")
             create_backup
             print_prompt "$user"
             return 0
-        ;;
+            ;;
         "restore")
             log "ERROR" "No backup file specified. Usage: restore <backup_file>" "$RED"
             print_prompt "$user"
             return 0
-        ;;
+            ;;
         "restore "*)
             backup_file=$(echo "$cmd" | cut -d' ' -f2-)
             restore_backup "$backup_file"
             print_prompt "$user"
             return 0
-        ;;
+            ;;
         "help")
             print_help_message
             print_prompt "$user"
             return 0
-        ;;
+            ;;
         "")
             # Empty command, just show prompt again
             print_prompt "$user"
             return 0
-        ;;
+            ;;
         *)
             # Execute system command
             if eval "$cmd" 2>/dev/null; then
@@ -260,7 +295,7 @@ execute_command() {
                 print_prompt "$user"
                 return 0
             fi
-        ;;
+            ;;
     esac
 }
 
