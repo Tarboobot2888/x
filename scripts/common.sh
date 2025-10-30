@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# X-Host VPS Common Functions and Variables
+# Downloaded from: https://github.com/Tarboobot2888/x
+
 # Common color definitions
 PURPLE='\033[0;35m'
 RED='\033[0;31m'
