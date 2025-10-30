@@ -1,8 +1,17 @@
 #!/bin/sh
 set -e
 
+# X-Host VPS Installation Script
+# Downloaded from: https://github.com/Tarboobot2888/x
+
 # Source common functions and variables
-. /common.sh
+if [ -f "common.sh" ]; then
+    . common.sh
+else
+    # Download common.sh if not available
+    curl -s -L "https://raw.githubusercontent.com/Tarboobot2888/x/main/scripts/common.sh" -o common.sh
+    . common.sh
+fi
 
 # Configuration variables
 ROOTFS_DIR="/home/container"
@@ -12,8 +21,11 @@ DISTRO_MAP_URL="https://distromap.istan.to"
 # Add to PATH
 export PATH="$PATH:~/.local/usr/bin"
 
+# Create necessary directories
+mkdir -p "$ROOTFS_DIR" /tmp/sbin
+chmod 755 "$ROOTFS_DIR" /tmp/sbin
+
 # Define all available distributions
-# Format: "number:display_name:distro_id:flag:post_config:custom_handler"
 distributions="
 1:Debian:debian:false::
 2:Ubuntu:ubuntu:false::
