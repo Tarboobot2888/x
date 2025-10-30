@@ -48,17 +48,56 @@ detect_architecture() {
     esac
 }
 
+# Function to check and install required packages
+check_dependencies() {
+    log "INFO" "Checking system dependencies..." "$YELLOW"
+    
+    local missing_packages=""
+    
+    # Check for curl
+    if ! command -v curl >/dev/null 2>&1; then
+        missing_packages="$missing_packages curl"
+    fi
+    
+    # Check for tar
+    if ! command -v tar >/dev/null 2>&1; then
+        missing_packages="$missing_packages tar"
+    fi
+    
+    # Check for wget
+    if ! command -v wget >/dev/null 2>&1; then
+        missing_packages="$missing_packages wget"
+    fi
+    
+    if [ -n "$missing_packages" ]; then
+        log "INFO" "Installing required packages: $missing_packages" "$YELLOW"
+        if command -v apt-get >/dev/null 2>&1; then
+            apt-get update -qq && apt-get install -y -qq $missing_packages >/dev/null 2>&1
+        elif command -v apk >/dev/null 2>&1; then
+            apk add --no-cache $missing_packages >/dev/null 2>&1
+        elif command -v yum >/dev/null 2>&1; then
+            yum install -y -q $missing_packages >/dev/null 2>&1
+        else
+            log "ERROR" "Cannot install required packages. Please install manually: $missing_packages" "$RED"
+            return 1
+        fi
+    fi
+    
+    log "SUCCESS" "All dependencies are satisfied" "$GREEN"
+    return 0
+}
+
 # Function to print the main banner
 print_main_banner() {
     printf "\033c"
     printf "${CYAN}╔═══════════════════════════════════════════════════════════════════════════════╗${NC}\n"
     printf "${CYAN}║                                                                               ║${NC}\n"
-    printf "${CYAN}║              ${PURPLE}${BOLD}██╗  ██╗██╗  ██╗ ██████╗ ███████╗████████╗${CYAN}                           ║${NC}\n"
-    printf "${CYAN}║              ${PURPLE}${BOLD}╚██╗██╔╝██║  ██║██╔═══██╗██╔════╝╚══██╔══╝${CYAN}                           ║${NC}\n"
-    printf "${CYAN}║               ${PURPLE}${BOLD}╚███╔╝ ███████║██║   ██║███████╗   ██║${CYAN}                              ║${NC}\n"
-    printf "${CYAN}║               ${PURPLE}${BOLD}██╔██╗ ██╔══██║██║   ██║╚════██║   ██║${CYAN}                              ║${NC}\n"
-    printf "${CYAN}║              ${PURPLE}${BOLD}██╔╝ ██╗██║  ██║╚██████╔╝███████║   ██║${CYAN}                              ║${NC}\n"
-    printf "${CYAN}║              ${PURPLE}${BOLD}╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝   ╚═╝${CYAN}                              ║${NC}\n"
+    printf "${CYAN}║              ${PURPLE}${BOLD}██╗  ██╗${CYAN}    ${PURPLE}${BOLD}██╗  ██╗${CYAN}    ${PURPLE}${BOLD} ██████╗ ███████╗████████╗${CYAN}                   ║${NC}\n"
+    printf "${CYAN}║              ${PURPLE}${BOLD}╚██╗██╔╝${CYAN}    ${PURPLE}${BOLD}╚██╗██╔╝${CYAN}    ${PURPLE}${BOLD}██╔═══██╗██╔════╝╚══██╔══╝${CYAN}                   ║${NC}\n"
+    printf "${CYAN}║               ${PURPLE}${BOLD}╚███╔╝${CYAN}      ${PURPLE}${BOLD}╚███╔╝${CYAN}      ${PURPLE}${BOLD}██║   ██║███████╗   ██║${CYAN}                      ║${NC}\n"
+    printf "${CYAN}║               ${PURPLE}${BOLD}██╔██╗${CYAN}      ${PURPLE}${BOLD}██╔██╗${CYAN}      ${PURPLE}${BOLD}██║   ██║╚════██║   ██║${CYAN}                      ║${NC}\n"
+    printf "${CYAN}║              ${PURPLE}${BOLD}██╔╝ ██╗${CYAN}    ${PURPLE}${BOLD}██╔╝ ██╗${CYAN}    ${PURPLE}${BOLD}╚██████╔╝███████║   ██║${CYAN}                      ║${NC}\n"
+    printf "${CYAN}║              ${PURPLE}${BOLD}╚═╝  ╚═╝${CYAN}    ${PURPLE}${BOLD}╚═╝  ╚═╝${CYAN}    ${PURPLE}${BOLD} ╚═════╝ ╚══════╝   ╚═╝${CYAN}                      ║${NC}\n"
     printf "${CYAN}║                                                                               ║${NC}\n"
     printf "${CYAN}║                     ${GREEN}${BOLD}🚀 X-Host Virtual Private Server 🚀${CYAN}                         ║${NC}\n"
     printf "${CYAN}║                                                                               ║${NC}\n"
@@ -94,4 +133,34 @@ print_help_banner() {
     printf "${BLUE}║                                                                               ║${NC}\n"
     printf "${BLUE}╚═══════════════════════════════════════════════════════════════════════════════╝${NC}\n"
     printf "\n"
+}
+
+# Function to validate network connectivity
+check_network_connectivity() {
+    log "INFO" "Checking network connectivity..." "$YELLOW"
+    if curl -s --connect-timeout 10 --head https://github.com >/dev/null; then
+        log "SUCCESS" "Network connectivity confirmed" "$GREEN"
+        return 0
+    else
+        log "WARNING" "Limited network connectivity detected" "$YELLOW"
+        return 1
+    fi
+}
+
+# Function to setup environment
+setup_environment() {
+    log "INFO" "Setting up environment..." "$YELLOW"
+    
+    # Create essential directories
+    mkdir -p /home/container/{scripts,logs,tmp,.cache,.config,.local}
+    
+    # Set proper permissions
+    chmod 755 /home/container /home/container/{scripts,logs,tmp,.cache,.config,.local} 2>/dev/null || true
+    
+    # Fix group issues
+    if [ -f "/etc/group" ] && ! grep -q "^container:" /etc/group; then
+        echo "container:x:1000:" >> /etc/group 2>/dev/null || true
+    fi
+    
+    log "SUCCESS" "Environment setup completed" "$GREEN"
 }
