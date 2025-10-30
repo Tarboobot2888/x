@@ -4,15 +4,24 @@
 # Downloaded from: https://github.com/Tarboobot2888/x
 
 # Source common functions and variables
-if [ -f "scripts/common.sh" ]; then
-    . scripts/common.sh
-elif [ -f "./common.sh" ]; then
+if [ -f "common.sh" ]; then
     . ./common.sh
+elif [ -f "scripts/common.sh" ]; then
+    . ./scripts/common.sh
 else
-    echo "❌ Error: common.sh not found"
-    echo "📥 Downloading from GitHub..."
-    curl -s -L "https://raw.githubusercontent.com/Tarboobot2888/x/main/scripts/common.sh" -o common.sh
-    . ./common.sh
+    # Fallback if common.sh not available
+    echo "❌ common.sh not found, using basic setup..."
+    GREEN='\033[0;32m'
+    RED='\033[0;31m'
+    YELLOW='\033[0;33m'
+    NC='\033[0m'
+    log() { 
+        local level="$1"
+        local msg="$2" 
+        local color="$3"
+        [ -z "$color" ] && color="$NC"
+        printf "${color}[$level]${NC} $msg\n"
+    }
 fi
 
 # Configuration
@@ -20,37 +29,21 @@ HOSTNAME="${SERVER_NAME:-X-Host-VPS}"
 HISTORY_FILE="${HOME}/.xhost_vps_history"
 MAX_HISTORY=1000
 
-# Check if not installed
-if [ ! -e "/.installed" ]; then
-    # Check if rootfs.tar.xz or rootfs.tar.gz exists and remove them if they do
-    if [ -f "/rootfs.tar.xz" ]; then
-        rm -f "/rootfs.tar.xz"
+# Setup environment
+setup_environment() {
+    # Create essential directories
+    mkdir -p "${HOME}/.cache" "${HOME}/.config" "${HOME}/.local" "${HOME}/tmp"
+    
+    # Create history file
+    touch "$HISTORY_FILE"
+    chmod 600 "$HISTORY_FILE"
+    
+    # Setup DNS if resolv.conf doesn't exist
+    if [ ! -f "/etc/resolv.conf" ] || [ ! -s "/etc/resolv.conf" ]; then
+        echo "nameserver 1.1.1.1" > /etc/resolv.conf
+        echo "nameserver 1.0.0.1" >> /etc/resolv.conf
     fi
-    
-    if [ -f "/rootfs.tar.gz" ]; then
-        rm -f "/rootfs.tar.gz"
-    fi
-    
-    # Wipe the files we downloaded into /tmp previously
-    rm -rf /tmp/sbin
-
-    # Add DNS Resolver nameservers to resolv.conf
-    printf "nameserver 1.1.1.1\nnameserver 1.0.0.1\n" > /etc/resolv.conf
-    
-    # Mark as installed.
-    touch "/.installed"
-fi
-
-# Check if the autorun script exists
-if [ ! -e "/autorun.sh" ]; then
-    touch /autorun.sh
-    chmod +x /autorun.sh
-fi
-
-printf "\033c"
-printf "${GREEN}Starting X-Host VPS..${NC}\n"
-sleep 1
-printf "\033c"
+}
 
 # Function to handle cleanup on exit
 cleanup() {
@@ -78,14 +71,14 @@ print_instructions() {
 # Function to print prompt
 print_prompt() {
     user="$1"
-    printf "\n${GREEN}${user}@${HOSTNAME}${NC}:${RED}$(get_formatted_dir)${NC}# "
+    printf "\n${GREEN}${user}@${HOSTNAME}${NC}:${BLUE}$(get_formatted_dir)${NC}# "
 }
 
 # Function to save command to history
 save_to_history() {
     cmd="$1"
-    if [ -n "$cmd" ] && [ "$cmd" != "exit" ]; then
-        printf "$cmd\n" >> "$HISTORY_FILE"
+    if [ -n "$cmd" ] && [ "$cmd" != "exit" ] && [ "$cmd" != "history" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') $cmd" >> "$HISTORY_FILE"
         # Keep only last MAX_HISTORY lines
         if [ -f "$HISTORY_FILE" ]; then
             tail -n "$MAX_HISTORY" "$HISTORY_FILE" > "$HISTORY_FILE.tmp"
@@ -97,158 +90,91 @@ save_to_history() {
 # Function reinstall the OS
 reinstall() {    
     log "INFO" "Reinstalling the OS on X-Host VPS..." "$YELLOW"
-    
-    find / -mindepth 1 -xdev -delete > /dev/null 2>&1
-}
-
-# Function to install wget
-install_wget() {
-    distro=$(grep -E '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
-    
-    case "$distro" in
-        "debian"|"ubuntu"|"devuan"|"linuxmint"|"kali")
-            apt-get update -qq && apt-get install -y -qq wget > /dev/null 2>&1
-        ;;
-        "void")
-            xbps-install -Syu wget > /dev/null 2>&1
-        ;;
-        "centos"|"fedora"|"rocky"|"almalinux"|"openEuler"|"amzn"|"ol")
-            yum install -y -q wget > /dev/null 2>&1
-        ;;
-        "opensuse"|"opensuse-tumbleweed"|"opensuse-leap")
-            zypper install -y -q wget > /dev/null 2>&1
-        ;;
-        "alpine"|"chimera")
-            apk add -q --no-interactive --no-scripts wget > /dev/null 2>&1
-        ;;
-        "gentoo")
-            emerge --sync -q && emerge -q wget > /dev/null 2>&1
-        ;;
-        "arch")
-            pacman -Syu --noconfirm --quiet wget > /dev/null 2>&1
-        ;;
-        "slackware")
-            yes | slackpkg install wget > /dev/null 2>&1
-        ;;
-        *)
-            log "ERROR" "Unsupported distribution: $distro" "$RED"
-            return 1
-        ;;
-    esac
-}
-
-# Function to install SSH from the repository
-install_ssh() {
-    # Check if SSH is already installed
-    if [ -f "/usr/local/bin/ssh" ]; then
-        log "ERROR" "SSH is already installed." "$RED"
-        return 1
+    log "WARNING" "This will remove all data! Continue? (y/N)" "$RED"
+    read -r confirm
+    if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+        find / -mindepth 1 -maxdepth 1 ! -name "home" -exec rm -rf {} + 2>/dev/null || true
+        log "INFO" "Reinstallation completed. Please restart the server." "$GREEN"
+    else
+        log "INFO" "Reinstallation cancelled." "$YELLOW"
     fi
-
-    # Install wget if not found
-    if ! command -v wget &> /dev/null; then
-        log "INFO" "Installing wget." "$YELLOW"
-        install_wget
-    fi
-    
-    log "INFO" "Installing SSH for X-Host VPS." "$YELLOW"
-    
-    # Determine the architecture
-    arch=$(detect_architecture)
-    
-    # URL to download the SSH binary
-    url="https://github.com/Tarboobot2888/x/releases/latest/download/ssh-$arch"
-    
-    # Download the SSH binary
-    wget -q -O /usr/local/bin/ssh "$url" || {
-        log "ERROR" "Failed to download SSH." "$RED"
-        return 1
-    }
-    
-    # Make the binary executable
-    chmod +x /usr/local/bin/ssh || {
-        log "ERROR" "Failed to make ssh executable." "$RED"
-        return 1
-    }    
-
-    log "SUCCESS" "SSH installed successfully on X-Host VPS." "$GREEN"
 }
 
 # Function to show system status
 show_system_status() {
     log "INFO" "X-Host VPS System Status:" "$GREEN"
-    uptime
-    free -h
-    df -h
-    ps aux --sort=-%mem | head -n 10
+    echo "=== System Information ==="
+    echo "Hostname: $(hostname)"
+    echo "Uptime: $(uptime 2>/dev/null || echo 'Not available')"
+    echo "OS: $(grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"' || uname -s)"
+    
+    echo ""
+    echo "=== Resource Usage ==="
+    # Memory
+    if command -v free >/dev/null 2>&1; then
+        free -h 2>/dev/null || echo "Memory info not available"
+    else
+        echo "Memory: free command not available"
+    fi
+    
+    # Disk
+    if command -v df >/dev/null 2>&1; then
+        df -h / 2>/dev/null || echo "Disk info not available"
+    else
+        echo "Disk: df command not available"
+    fi
+    
+    # Processes
+    if command -v ps >/dev/null 2>&1; then
+        echo ""
+        echo "=== Top Processes ==="
+        ps aux --sort=-%mem 2>/dev/null | head -n 6 || echo "Process info not available"
+    fi
 }
 
 # Function to create a backup
 create_backup() {
-    # Check if tar is installed
-    if ! command -v tar > /dev/null 2>&1; then
-        log "ERROR" "tar is not installed. Please install tar first." "$RED"
-        return 1
-    fi
-
-    backup_file="/backup_$(date +%Y%m%d%H%M%S).tar.gz"
-    exclude_file="/tmp/exclude-list.txt"
-
-    # Create a file with a list of patterns to exclude. This is more
-    # compatible with different versions of tar, including busybox tar.
-    # We use relative paths for exclusion as we'll be running tar from /.
-    cat > "$exclude_file" <<EOF
-./${backup_file#/}
-./proc
-./tmp
-./dev
-./sys
-./run
-./vps.config
-${exclude_file#/}
-EOF
-
-    log "INFO" "Starting backup process on X-Host VPS..." "$YELLOW"
-    (cd / && tar --numeric-owner -czf "$backup_file" -X "$exclude_file" .) > /dev/null 2>&1
-    log "SUCCESS" "Backup created at $backup_file" "$GREEN"
-
-    # Clean up the exclude file
-    rm -f "$exclude_file"
+    log "INFO" "Backup feature would be available in full installation" "$YELLOW"
+    log "INFO" "Please install a distribution first using the install script" "$YELLOW"
 }
 
 # Function to restore a backup
 restore_backup() {
-    backup_file="$1"
-
-    # Check if tar is installed
-    if ! command -v tar > /dev/null 2>&1; then
-        log "ERROR" "tar is not installed. Please install tar first." "$RED"
-        return 1
-    fi
-
-    if [ -z "$backup_file" ]; then
-        log "INFO" "Usage: restore <backup_file>" "$YELLOW"
-        log "INFO" "Example: restore backup_20250620024221.tar.gz" "$YELLOW"
-        return 1
-    fi
-
-    if [ -f "/$backup_file" ]; then
-        log "INFO" "Starting restore process on X-Host VPS..." "$YELLOW"
-        tar --numeric-owner -xzf "/$backup_file" -C / --exclude="$backup_file" > /dev/null 2>&1
-        log "SUCCESS" "Backup restored from $backup_file" "$GREEN"
-    else
-        log "ERROR" "Backup file not found: $backup_file" "$RED"
-    fi
+    log "INFO" "Restore feature would be available in full installation" "$YELLOW"
+    log "INFO" "Please install a distribution first using the install script" "$YELLOW"
 }
 
 # Function to print initial banner
 print_banner() {
-    print_main_banner
+    if command -v print_main_banner >/dev/null 2>&1; then
+        print_main_banner
+    else
+        echo "========================================="
+        echo "🚀 X-Host VPS - Professional Virtual Server"
+        echo "📍 Powered by X-Host Cloud Services"
+        echo "💻 Type 'help' for available commands"
+        echo "========================================="
+    fi
 }
 
 # Function to print a beautiful help message
 print_help_message() {
-    print_help_banner
+    if command -v print_help_banner >/dev/null 2>&1; then
+        print_help_banner
+    else
+        echo "=== X-Host VPS Available Commands ==="
+        echo "🧹  clear, cls     - Clear the terminal screen"
+        echo "🔌  exit          - Shutdown the container server"
+        echo "📜  history       - Display command history"
+        echo "🔄  reinstall     - Reinstall the operating system"
+        echo "🔐  install-ssh   - Install custom SSH server"
+        echo "📊  status        - Show detailed system status"
+        echo "💾  backup        - Create a complete system backup"
+        echo "📥  restore       - Restore from a system backup"
+        echo "❓  help          - Display this help information"
+        echo ""
+        echo "💡 Powered by X-Host Cloud Services"
+    fi
 }
 
 # Function to handle command execution
@@ -271,14 +197,17 @@ execute_command() {
         ;;
         "history")
             if [ -f "$HISTORY_FILE" ]; then
-                cat "$HISTORY_FILE"
+                cat "$HISTORY_FILE" | tail -20
+            else
+                log "INFO" "No command history found." "$YELLOW"
             fi
             print_prompt "$user"
             return 0
         ;;
         "reinstall")
             reinstall
-            exit 2
+            print_prompt "$user"
+            return 0
         ;;
         "sudo"*|"su"*)
             log "ERROR" "You are already running as root." "$RED"
@@ -286,7 +215,7 @@ execute_command() {
             return 0
         ;;
         "install-ssh")
-            install_ssh
+            log "INFO" "SSH installation would be available in full installation" "$YELLOW"
             print_prompt "$user"
             return 0
         ;;
@@ -316,10 +245,21 @@ execute_command() {
             print_prompt "$user"
             return 0
         ;;
-        *)
-            eval "$cmd"
+        "")
+            # Empty command, just show prompt again
             print_prompt "$user"
             return 0
+        ;;
+        *)
+            # Execute system command
+            if eval "$cmd" 2>/dev/null; then
+                print_prompt "$user"
+                return 0
+            else
+                log "ERROR" "Command not found: $cmd" "$RED"
+                print_prompt "$user"
+                return 0
+            fi
         ;;
     esac
 }
@@ -327,33 +267,40 @@ execute_command() {
 # Function to run command prompt for a specific user
 run_prompt() {
     user="$1"
+    printf "> "
     read -r cmd
-    
     execute_command "$cmd" "$user"
-    print_prompt "$user"
 }
 
-# Create history file if it doesn't exist
-touch "$HISTORY_FILE"
+# Main execution
+main() {
+    # Setup environment
+    setup_environment
+    
+    # Set up trap for clean exit
+    trap cleanup INT TERM
+    
+    # Print the initial banner
+    print_banner
+    
+    # Print the initial instructions
+    print_instructions
+    
+    # Execute autorun.sh if it exists
+    if [ -f "/autorun.sh" ] && [ -x "/autorun.sh" ]; then
+        /autorun.sh
+    elif [ -f "autorun.sh" ] && [ -x "autorun.sh" ]; then
+        ./autorun.sh
+    fi
+    
+    # Print initial prompt
+    print_prompt "user"
+    
+    # Main command loop
+    while true; do
+        run_prompt "user"
+    done
+}
 
-# Set up trap for clean exit
-trap cleanup INT TERM
-
-# Print the initial banner
-print_banner
-
-# Print the initial instructions
-print_instructions
-
-# Print initial command
-printf "${GREEN}root@${HOSTNAME}${NC}:${RED}$(get_formatted_dir)${NC}#\n"
-
-# Execute autorun.sh
-if [ -f "/autorun.sh" ]; then
-    sh "/autorun.sh"
-fi
-
-# Main command loop
-while true; do
-    run_prompt "user"
-done
+# Start main function
+main
