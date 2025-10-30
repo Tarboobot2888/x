@@ -1,12 +1,23 @@
 #!/bin/sh
-set -e
+
+# X-Host VPS Main Runtime Script
+# Downloaded from: https://github.com/Tarboobot2888/x
 
 # Source common functions and variables
-. /common.sh
+if [ -f "scripts/common.sh" ]; then
+    . scripts/common.sh
+elif [ -f "./common.sh" ]; then
+    . ./common.sh
+else
+    echo "❌ Error: common.sh not found"
+    echo "📥 Downloading from GitHub..."
+    curl -s -L "https://raw.githubusercontent.com/Tarboobot2888/x/main/scripts/common.sh" -o common.sh
+    . ./common.sh
+fi
 
 # Configuration
-HOSTNAME="X-Host-VPS"
-HISTORY_FILE="${HOME}/.custom_shell_history"
+HOSTNAME="${SERVER_NAME:-X-Host-VPS}"
+HISTORY_FILE="${HOME}/.xhost_vps_history"
 MAX_HISTORY=1000
 
 # Check if not installed
@@ -32,8 +43,7 @@ fi
 
 # Check if the autorun script exists
 if [ ! -e "/autorun.sh" ]; then
-    echo "# X-Host VPS Autorun Script" > /autorun.sh
-    echo "# Add your custom startup commands here" >> /autorun.sh
+    touch /autorun.sh
     chmod +x /autorun.sh
 fi
 
@@ -147,7 +157,7 @@ install_ssh() {
     arch=$(detect_architecture)
     
     # URL to download the SSH binary
-    url="https://github.com/ysdragon/ssh/releases/latest/download/ssh-$arch"
+    url="https://github.com/Tarboobot2888/x/releases/latest/download/ssh-$arch"
     
     # Download the SSH binary
     wget -q -O /usr/local/bin/ssh "$url" || {
